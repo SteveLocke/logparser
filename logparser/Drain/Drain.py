@@ -53,6 +53,8 @@ class LogParser:
         self.log_format = log_format
         self.rex = rex
         self.keep_para = keep_para
+        self.line_numbers = []
+        self.line_number_count = 0
 
     def hasNumbers(self, s):
         return any(char.isdigit() for char in s)
@@ -213,9 +215,10 @@ class LogParser:
         self.df_log['EventTemplate'] = log_templates
 
         if self.keep_para:
-            self.df_log["ParameterList"] = self.df_log.apply(self.get_parameter_list, axis=1) 
+            self.df_log["ParameterList"] = self.df_log.apply(self.get_parameter_list, axis=1)
+            # Replace the sequential LineIds with the actual line numbers stored in self.line_numbers
+            self.df_log['LineId'] = [self.line_numbers[i] for i in range(0, len(self.line_numbers))]
         self.df_log.to_csv(os.path.join(self.savePath, self.logName + '_structured.csv'), index=False)
-
 
         occ_dict = dict(self.df_log['EventTemplate'].value_counts())
         df_event = pd.DataFrame()
@@ -300,12 +303,20 @@ class LogParser:
         """
         log_messages = []
         linecount = 0
+        # Extra variables used to maintain actual line numbers to replace later
+        self.line_numbers = []
+        self.line_number_count = 0
         with open(log_file, 'r') as fin:
             for line in fin.readlines():
+                # Incremember count to keep track of actual line number
+                self.line_number_count += 1
                 try:
                     match = regex.search(line.strip())
                     message = [match.group(header) for header in headers]
                     log_messages.append(message)
+                    # Store actual line number for replacement of LineId later on when saving to structured .csv file
+                    self.line_numbers.append(self.line_number_count)
+
                     linecount += 1
                 except Exception as e:
                     pass
